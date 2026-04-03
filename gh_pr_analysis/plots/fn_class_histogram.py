@@ -12,7 +12,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from gh_pr_analysis.config import GITHUB_REPO
+import gh_pr_analysis.config as config
 from gh_pr_analysis.paths import default_repo_bundle_dir, default_viz_dir, pr_snapshots_dir_for_reading
 from gh_pr_analysis.plots.plot_common import try_repo_label
 from gh_pr_analysis.plots.histogram_style import (
@@ -100,7 +100,7 @@ def render_histogram_figure(
     return fig
 
 
-def main() -> None:
+def run() -> None:
     repo_bundle = default_repo_bundle_dir()
     if not repo_bundle.is_dir():
         raise SystemExit(f"Repo bundle not found: {repo_bundle}")
@@ -119,7 +119,7 @@ def main() -> None:
 
     hi, series, merged_tail = axis_hi_and_clip(totals, DISPLAY_PERCENTILE, TAIL_MERGE_SLOP)
     bin_edges = [i - 0.5 for i in range(hi + 2)]
-    title_repo = try_repo_label(repo_bundle) or GITHUB_REPO
+    title_repo = try_repo_label(repo_bundle) or config.GITHUB_REPO
 
     fig = render_histogram_figure(series, hi, merged_tail, bin_edges, title_repo)
     viz = default_viz_dir()
@@ -139,4 +139,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run()

@@ -6,7 +6,7 @@ import math
 from typing import Any
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import MaxNLocator
 
 X_AXIS_PAD = 0.5
 
@@ -94,7 +94,10 @@ def annotate_histogram_bars(
 
 def apply_histogram_x_axis(ax: plt.Axes, hi: int, merged_tail: bool, xlabel_core: str) -> None:
     ax.set_xlim(-X_AXIS_PAD, hi + X_AXIS_PAD)
-    ax.xaxis.set_major_locator(MultipleLocator(1))
+    # Integer counts on x, but tick spacing scales with range (not a tick per bin).
+    ax.xaxis.set_major_locator(
+        MaxNLocator(nbins=11, integer=True, min_n_ticks=4)
+    )
     xlabel = xlabel_core
     if merged_tail:
         xlabel += f" — last bin is ≥{hi}"

@@ -9,17 +9,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import math
+
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import MaxNLocator
 
-from gh_pr_analysis.config import GITHUB_REPO
+import gh_pr_analysis.config as config
 from gh_pr_analysis.paths import default_repo_bundle_dir, default_viz_dir, pr_snapshots_dir_for_reading
 from gh_pr_analysis.plots.plot_common import try_repo_label
 
 OUTPUT_BASENAME = "pr_pyfiles_vs_time.png"
 OPEN_TIME_FIELD = "created_at"
-Y_VIEW_MAX = 32
 
 
 def parse_github_datetime(value: object) -> datetime | None:
@@ -74,7 +75,7 @@ def collect_points(pr_root: Path) -> tuple[list[datetime], list[int], int, int]:
     return dates, counts, n_ok, n_skip
 
 
-def main() -> None:
+def run() -> None:
     repo_bundle = default_repo_bundle_dir()
     if not repo_bundle.is_dir():
         raise SystemExit(f"Repo bundle not found: {repo_bundle}")
@@ -88,14 +89,10 @@ def main() -> None:
         f"Plotted {n_ok} PRs" + (f", skipped {n_skip}" if n_skip else ""),
         file=sys.stderr,
     )
-    n_above = sum(1 for c in counts if c > Y_VIEW_MAX)
-    if n_above:
-        print(
-            f"{n_above} PR(s) have >{Y_VIEW_MAX} Python files (points on top edge).",
-            file=sys.stderr,
-        )
+    y_data_max = max(counts)
+    y_lim_hi = y_data_max + max(1, math.ceil(y_data_max * 0.08 + 0.49))
 
-    title_repo = try_repo_label(repo_bundle) or GITHUB_REPO
+    title_repo = try_repo_label(repo_bundle) or config.GITHUB_REPO
 
     fig, ax = plt.subplots(figsize=(12, 6.25), layout="constrained")
     ax.scatter(
@@ -109,7 +106,7 @@ def main() -> None:
     ax.set_xlabel(f"PR opened ({OPEN_TIME_FIELD}, UTC)")
     ax.set_ylabel("Python files in PR diff (.py paths)")
     ax.set_title(
-        f"Open PRs: time opened vs .py file count — {title_repo} (y: 0–{Y_VIEW_MAX})"
+        f"Open PRs: time opened vs .py file count — {title_repo}"
     )
 
     loc = mdates.AutoDateLocator(minticks=5, maxticks=11)
@@ -122,8 +119,8 @@ def main() -> None:
         rotation_mode="anchor",
     )
 
-    ax.set_ylim(-0.5, Y_VIEW_MAX)
-    ax.yaxis.set_major_locator(MultipleLocator(1))
+    ax.set_ylim(-0.5, float(y_lim_hi))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=10, integer=True, min_n_ticks=4))
     ax.grid(True, which="major", axis="both", alpha=0.28, linewidth=0.6)
     ax.tick_params(axis="both", which="major", labelsize=9.5, length=5)
     ax.tick_params(axis="x", which="major", pad=8)
@@ -137,4 +134,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run()

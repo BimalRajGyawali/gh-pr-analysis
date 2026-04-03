@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gh_pr_analysis.config import GITHUB_REPO, PR_SNAPSHOTS_SUBDIR, REPOS_ROOT, VIZ_SUBDIR
+from gh_pr_analysis import config as _config
+from gh_pr_analysis.config import PR_SNAPSHOTS_SUBDIR, REPOS_ROOT, VIZ_SUBDIR
 from gh_pr_analysis.repo_parse import parse_repo
 
 
@@ -19,7 +20,7 @@ def pr_snapshots_dir(bundle: Path) -> Path:
 
 
 def default_repo_bundle_dir() -> Path:
-    owner, repo = parse_repo(GITHUB_REPO)
+    owner, repo = parse_repo(_config.GITHUB_REPO)
     repo_key = f"{owner}_{repo}".replace("/", "_")
     return per_repo_bundle_dir(repo_key)
 

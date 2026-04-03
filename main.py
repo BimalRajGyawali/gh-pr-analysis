@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Project entry point. Run from this directory: python main.py"""
+"""
+Run from the project root: for each repo in repos.json, fetch open PRs, analyze, and refresh viz/.
+"""
 
-from gh_pr_analysis.main import main
+from gh_pr_analysis.cli import run
 
 if __name__ == "__main__":
-    main()
+    run()

@@ -7,6 +7,8 @@ from pathlib import Path
 # Project root (parent of the gh_pr_analysis package)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+# Repo target for ``run_fetch_and_viz``. ``python main.py`` overwrites this each iteration with the
+# repo from repos.json. For ad-hoc ``run_fetch_and_viz`` calls, set this or ``GITHUB_REPO`` in ``.env``.
 GITHUB_REPO = "Significant-Gravitas/AutoGPT"
 REPOS_ROOT = _PROJECT_ROOT / "repos"
 

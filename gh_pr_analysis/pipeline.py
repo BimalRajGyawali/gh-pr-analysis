@@ -1,35 +1,15 @@
-"""CLI entry: list open PRs, fetch each, update index; then write viz/*.png for the repo.
+"""Fetch open PRs, update index, run histogram plots (``run_fetch_and_viz``)."""
 
-From the project root you can run either::
-
-    python main.py
-
-or::
-
-    python -m gh_pr_analysis.main
-
-Plots (optional, same data)::
-
-    python -m gh_pr_analysis.plots.pyfile_histogram
-    python -m gh_pr_analysis.plots.fn_class_histogram
-    python -m gh_pr_analysis.plots.pyfiles_vs_time
-"""
 
 from __future__ import annotations
 
 import os
 import sys
 import time
-from pathlib import Path
 from typing import Any
 
-from gh_pr_analysis.config import (
-    GITHUB_API,
-    GITHUB_REPO,
-    MAX_OPEN_PRS,
-    SLEEP_AFTER_PR_SECONDS,
-)
-from gh_pr_analysis.dotenv import load_dotenv_simple
+import gh_pr_analysis.config as cfg
+from gh_pr_analysis.config import GITHUB_API
 from gh_pr_analysis.github import api_usage_dict, paginate_list
 from gh_pr_analysis.index_log import append_run_log, write_open_prs_index
 from gh_pr_analysis.paths import per_repo_bundle_dir, pr_snapshots_dir
@@ -37,12 +17,12 @@ from gh_pr_analysis.repo_parse import parse_repo
 from gh_pr_analysis.snapshot_pr import fetch_snapshot_for_pr
 from gh_pr_analysis.viz import generate_repo_histograms
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+def run_fetch_and_viz() -> None:
+    """Fetch open PRs for ``cfg.GITHUB_REPO``, update index, write viz/.
 
-def main() -> None:
-    load_dotenv_simple(_PROJECT_ROOT / ".env")
-
+    Each iteration of ``main.py`` sets ``GITHUB_REPO`` from ``repos.json``. For ad-hoc ``run_fetch_and_viz`` calls, set ``GITHUB_REPO`` in ``.env`` or ``config.py``.
+    """
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if not token:
         print(
@@ -50,15 +30,18 @@ def main() -> None:
             file=sys.stderr,
         )
 
-    owner, repo = parse_repo(GITHUB_REPO)
-    print(f"Fetching all open PRs from {owner}/{repo} (GITHUB_REPO={GITHUB_REPO!r})", file=sys.stderr)
+    owner, repo = parse_repo(cfg.GITHUB_REPO)
+    print(
+        f"Fetching all open PRs from {owner}/{repo} (GITHUB_REPO={cfg.GITHUB_REPO!r})",
+        file=sys.stderr,
+    )
     api_base = f"{GITHUB_API}/repos/{owner}/{repo}"
 
     list_stats: dict[str, int] = {}
     pulls = paginate_list(
         f"{api_base}/pulls?state=open&per_page=100&sort=updated&direction=desc",
         token,
-        MAX_OPEN_PRS,
+        cfg.MAX_OPEN_PRS,
         stats=list_stats,
     )
     pull_items = [p for p in pulls if isinstance(p, dict)]
@@ -101,8 +84,8 @@ def main() -> None:
         )
         write_open_prs_index(repo_bundle, owner, repo, pull_rows, planned_total)
         print(f"  → appended to {index_path} ({len(pull_rows)}/{planned_total})", file=sys.stderr)
-        if SLEEP_AFTER_PR_SECONDS > 0 and i < planned_total:
-            time.sleep(SLEEP_AFTER_PR_SECONDS)
+        if cfg.SLEEP_AFTER_PR_SECONDS > 0 and i < planned_total:
+            time.sleep(cfg.SLEEP_AFTER_PR_SECONDS)
 
     append_run_log(
         repo_bundle,
@@ -118,7 +101,3 @@ def main() -> None:
     print("Writing viz/ histograms for repo …", file=sys.stderr)
     generate_repo_histograms()
     print("  → viz/ refreshed", file=sys.stderr)
-
-
-if __name__ == "__main__":
-    main()

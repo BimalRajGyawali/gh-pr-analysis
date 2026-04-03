@@ -1,7 +1,7 @@
 """
 Histogram of open PRs by python_fn_class_modified_file_count (from open_prs.json).
 
-Edit GITHUB_REPO in gh_pr_analysis.config for a different repo.
+Plots use the repo bundle on disk; title falls back to config.GITHUB_REPO (set by ``main.py`` / ``repos.json`` or ``GITHUB_REPO`` in ``.env``).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from gh_pr_analysis.config import GITHUB_REPO
+import gh_pr_analysis.config as config
 from gh_pr_analysis.paths import default_open_prs_path, default_viz_dir
 from gh_pr_analysis.plots.histogram_style import (
     annotate_histogram_bars,
@@ -81,11 +81,11 @@ def render_histogram_figure(
     return fig
 
 
-def main() -> None:
+def run() -> None:
     index_path = default_open_prs_path()
     if not index_path.is_file():
         raise SystemExit(
-            f"Index not found: {index_path}\n(Set GITHUB_REPO in gh_pr_analysis/config.py and run the fetcher first.)"
+            f"Index not found: {index_path}\n(Run ``python main.py`` from the project root first.)"
         )
 
     counts, repo_meta = load_counts(index_path)
@@ -94,7 +94,7 @@ def main() -> None:
 
     hi, series, merged_tail = axis_hi_and_clip(counts, DISPLAY_PERCENTILE, TAIL_MERGE_SLOP)
     bin_edges = [i - 0.5 for i in range(hi + 2)]
-    title_repo = repo_meta or GITHUB_REPO
+    title_repo = repo_meta or config.GITHUB_REPO
 
     fig = render_histogram_figure(series, hi, merged_tail, bin_edges, title_repo)
     viz = default_viz_dir()
@@ -114,4 +114,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run()

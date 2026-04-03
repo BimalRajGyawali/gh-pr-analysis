@@ -16,7 +16,7 @@ def generate_repo_histograms() -> None:
         "gh_pr_analysis.plots.pyfiles_vs_time",
     ):
         try:
-            importlib.import_module(mod_name).main()
+            importlib.import_module(mod_name).run()
         except SystemExit as e:
             if e.code not in (0, None):
                 print(
