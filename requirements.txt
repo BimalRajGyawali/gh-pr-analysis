@@ -1,0 +1,2 @@
+# gh_pr_analysis fetch run ends with viz/*.png (matplotlib).
+matplotlib>=3.7
