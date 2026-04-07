@@ -2,7 +2,6 @@
 bk/*
 repos/** 
 repos_analysed/**
-repos_all.json
 test.py
 viz_output_all_repos/**
 trash/**
