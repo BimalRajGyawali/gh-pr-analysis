@@ -3,7 +3,6 @@ bk/*
 repos/** 
 repos_analysed/**
 test.py
-viz_output_all_repos/**
 trash/**
-viz_output_all_repos/**
+viz_output_all_repos/*.json
 .DS_Store
