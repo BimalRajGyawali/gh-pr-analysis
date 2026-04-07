@@ -15,6 +15,7 @@ from gh_pr_analysis.index_log import append_run_log, write_open_prs_index
 from gh_pr_analysis.paths import per_repo_bundle_dir, pr_snapshots_dir
 from gh_pr_analysis.repo_parse import parse_repo
 from gh_pr_analysis.snapshot_pr import fetch_snapshot_for_pr
+from gh_pr_analysis.timing_log import clock, elapsed_ms
 from gh_pr_analysis.viz import generate_repo_histograms
 
 
@@ -34,16 +35,21 @@ def run_fetch_and_viz() -> None:
     print(
         f"Fetching all open PRs from {owner}/{repo} (GITHUB_REPO={cfg.GITHUB_REPO!r})",
         file=sys.stderr,
+        flush=True,
     )
     api_base = f"{GITHUB_API}/repos/{owner}/{repo}"
 
     list_stats: dict[str, int] = {}
+    print("  step: list open PRs (REST, paginated) …", file=sys.stderr, flush=True)
+    t = clock()
     pulls = paginate_list(
         f"{api_base}/pulls?state=open&per_page=100&sort=updated&direction=desc",
         token,
         cfg.MAX_OPEN_PRS,
         stats=list_stats,
+        progress_label="open PRs list",
     )
+    list_open_prs_ms = elapsed_ms(t)
     pull_items = [p for p in pulls if isinstance(p, dict)]
     if not pull_items:
         raise SystemExit(f"No open pull requests in {owner}/{repo}.")
@@ -61,19 +67,35 @@ def run_fetch_and_viz() -> None:
             "repo": f"{owner}/{repo}",
             "planned_pr_total": planned_total,
             "api_usage": api_usage_dict(list_stats),
+            "timings_ms": {"list_open_prs_ms": list_open_prs_ms},
         },
     )
+    print(
+        f"  timings: list_open_prs={list_open_prs_ms:.0f}ms ({planned_total} PRs)",
+        file=sys.stderr,
+        flush=True,
+    )
+
     cumulative: dict[str, int] = {
         "github_rest": list_stats.get("github_rest", 0),
         "raw_fetches": list_stats.get("raw_fetches", 0),
     }
     pull_rows: list[dict[str, Any]] = []
     index_path = repo_bundle / "open_prs.json"
+    loop_wall_ms = 0.0
 
     for i, pr in enumerate(pull_items, start=1):
         n = pr.get("number")
-        print(f"[{i}/{planned_total}] PR #{n} — fetch & analyze …", file=sys.stderr)
+        print(
+            f"[{i}/{planned_total}] PR #{n} — fetch & analyze …",
+            file=sys.stderr,
+            flush=True,
+        )
+        t_pr = clock()
         row = fetch_snapshot_for_pr(owner, repo, api_base, token, repo_bundle, pr)
+        fetch_ms = elapsed_ms(t_pr)
+        loop_wall_ms += fetch_ms
+
         pull_rows.append(row)
         u = row.get("api_usage") or {}
         cumulative["github_rest"] = cumulative.get("github_rest", 0) + int(
@@ -82,8 +104,21 @@ def run_fetch_and_viz() -> None:
         cumulative["raw_fetches"] = cumulative.get("raw_fetches", 0) + int(
             u.get("raw_file_fetches", 0)
         )
+        print(
+            f"  step: write open_prs.json ({len(pull_rows)}/{planned_total}) …",
+            file=sys.stderr,
+            flush=True,
+        )
+        t_ix = clock()
         write_open_prs_index(repo_bundle, owner, repo, pull_rows, planned_total)
-        print(f"  → appended to {index_path} ({len(pull_rows)}/{planned_total})", file=sys.stderr)
+        index_write_ms = elapsed_ms(t_ix)
+
+        print(
+            f"  → appended to {index_path} ({len(pull_rows)}/{planned_total}); "
+            f"index_write={index_write_ms:.0f}ms; pr_wall={fetch_ms:.0f}ms",
+            file=sys.stderr,
+            flush=True,
+        )
         if cfg.SLEEP_AFTER_PR_SECONDS > 0 and i < planned_total:
             time.sleep(cfg.SLEEP_AFTER_PR_SECONDS)
 
@@ -95,9 +130,24 @@ def run_fetch_and_viz() -> None:
             "planned_pr_total": planned_total,
             "pulls_processed": len(pull_rows),
             "api_usage": api_usage_dict(cumulative),
+            "timings_ms": {
+                "list_open_prs_ms": list_open_prs_ms,
+                "pr_loop_wall_ms": round(loop_wall_ms, 2),
+            },
         },
     )
-    print(f"Done. Index {index_path} ({len(pull_rows)} PRs)", file=sys.stderr)
-    print("Writing viz/ histograms for repo …", file=sys.stderr)
+    print(f"Done. Index {index_path} ({len(pull_rows)} PRs)", file=sys.stderr, flush=True)
+    print("Writing viz/ histograms for repo …", file=sys.stderr, flush=True)
+    t_viz = clock()
     generate_repo_histograms()
-    print("  → viz/ refreshed", file=sys.stderr)
+    viz_ms = elapsed_ms(t_viz)
+    print(f"  → viz/ refreshed ({viz_ms:.0f} ms)", file=sys.stderr, flush=True)
+
+    append_run_log(
+        repo_bundle,
+        {
+            "event": "viz_done",
+            "repo": f"{owner}/{repo}",
+            "timings_ms": {"generate_histograms_ms": viz_ms},
+        },
+    )

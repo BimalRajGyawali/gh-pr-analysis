@@ -322,8 +322,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-candidates",
         type=int,
-        default=80,
-        help="Max search results to filter (default 80)",
+        default=200,
+        help="Max search results to filter (default 200)",
     )
     parser.add_argument("--sleep-search", type=float, default=2.0, help="Seconds between search pages")
     parser.add_argument(

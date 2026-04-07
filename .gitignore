@@ -1,3 +1,6 @@
 .env
 bk/*
 repos/** 
+repos_analysed/**
+repos_all.json
+test.py

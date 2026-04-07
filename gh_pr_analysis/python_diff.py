@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import ast
 import re
+import sys
 from pathlib import Path
 from typing import Any
+
+from gh_pr_analysis.timing_log import clock, elapsed_ms
 
 _HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", re.MULTILINE)
 
@@ -65,6 +68,8 @@ def spans_intersect_touched(lo: int, hi: int, touched: set[int]) -> bool:
 def analyze_python_fn_class_changes(
     pr_dir: Path,
     files: list[dict[str, Any]],
+    *,
+    log_prefix: str | None = None,
 ) -> dict[str, Any]:
     """
     Count .py files where at least one function/class (AST span) intersects
@@ -74,22 +79,43 @@ def analyze_python_fn_class_changes(
     per_file: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
 
+    py_total = sum(1 for e in files if str(e.get("filename") or "").endswith(".py"))
+    if log_prefix:
+        print(
+            f"  [{log_prefix}] analyzing {py_total} .py file(s) for fn/class ∩ diff …",
+            file=sys.stderr,
+            flush=True,
+        )
+
     for entry in files:
         name = entry.get("filename") or ""
         if not name.endswith(".py"):
             continue
+        t0 = clock()
+
+        def done(msg: str) -> None:
+            if log_prefix:
+                print(
+                    f"  [{log_prefix}] {name}: {msg} ({elapsed_ms(t0):.0f}ms)",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
         local = entry.get("local_path")
         if not local:
             skipped.append({"filename": name, "reason": "no_local_path"})
+            done("skip — no local_path")
             continue
         fpath = pr_dir / local
         if not fpath.is_file():
             skipped.append({"filename": name, "reason": "missing_file"})
+            done("skip — missing on disk")
             continue
         try:
             source = fpath.read_text(encoding="utf-8")
         except OSError as e:
             skipped.append({"filename": name, "reason": f"read_error:{e}"})
+            done(f"skip — read_error: {e}")
             continue
         nlines = max(1, source.count("\n") + (0 if source.endswith("\n") else 1))
         patch = entry.get("patch")
@@ -99,14 +125,17 @@ def analyze_python_fn_class_changes(
             touched = set(range(1, nlines + 1))
         if not touched and not patch:
             skipped.append({"filename": name, "reason": "no_patch"})
+            done("skip — no patch")
             continue
         if not touched:
             skipped.append({"filename": name, "reason": "empty_touch_set"})
+            done("skip — empty touch set")
             continue
         try:
             tree = ast.parse(source, filename=name)
         except SyntaxError as e:
             skipped.append({"filename": name, "reason": f"syntax_error:{e}"})
+            done(f"skip — syntax_error: {e}")
             continue
         spans = iter_py_def_class_spans(tree)
         hit_names = [qn for lo, hi, qn in spans if spans_intersect_touched(lo, hi, touched)]
@@ -118,6 +147,20 @@ def analyze_python_fn_class_changes(
                     "modified_functions_and_classes": hit_names,
                 }
             )
+            preview = ", ".join(hit_names[:4])
+            if len(hit_names) > 4:
+                preview += ", …"
+            done(f"hit — {len(hit_names)} fn/class ({preview})")
+        else:
+            done("no fn/class intersects touched lines")
+
+    if log_prefix:
+        print(
+            f"  [{log_prefix}] done — {file_count} file(s) with hits, "
+            f"{len(skipped)} skipped, {py_total} .py seen",
+            file=sys.stderr,
+            flush=True,
+        )
 
     return {
         "file_count": file_count,
