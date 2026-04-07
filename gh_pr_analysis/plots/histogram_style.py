@@ -46,7 +46,7 @@ def bar_label_count_and_pct(count: int, n_total: int) -> str:
     c = int(count)
     if n_total <= 0:
         return f"{c:,}"
-    return f"{c:,} ({format_share_pct(c, n_total)})"
+    return f"{c:,}\n({format_share_pct(c, n_total)})"
 
 
 def annotate_histogram_bars(
@@ -71,23 +71,41 @@ def annotate_histogram_bars(
     if hi > 55:
         headroom += 0.06
 
-    label_offset_pt = 3
+    # Label strategy:
+    # - big bars: two-line label inside the bar (count + percent)
+    # - small bars: show a compact label above the bar (count only) so it remains readable
+    inside_min_h = max(min_h, y_max * 0.07, 9.0)
+    above_min_h = max(1.0, y_max * 0.02, 2.0)
+
     for patch, h in zip(patches, heights):
         h = float(h)
-        if h < min_h:
+        if h <= 0:
             continue
         x = patch.get_x() + patch.get_width() / 2.0
         c = int(h)
-        ax.annotate(
-            bar_label_count_and_pct(c, n_total),
-            xy=(x, h),
-            xytext=(0, label_offset_pt),
-            textcoords="offset points",
-            ha="center",
-            va="bottom",
-            fontsize=7,
-            color="black",
-        )
+
+        if h >= inside_min_h:
+            ax.annotate(
+                bar_label_count_and_pct(c, n_total),
+                xy=(x, h),
+                xytext=(0, 2),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=8.0,
+                color="black",
+            )
+        elif h >= above_min_h:
+            ax.annotate(
+                bar_label_count_and_pct(c, n_total),
+                xy=(x, h),
+                xytext=(0, 2),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=7.8,
+                color="black",
+            )
 
     return y_max * headroom
 
