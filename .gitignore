@@ -7,3 +7,4 @@ test.py
 viz_output_all_repos/**
 trash/**
 viz_output_all_repos/**
+.DS_Store
