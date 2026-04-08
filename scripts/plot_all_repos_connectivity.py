@@ -100,7 +100,7 @@ def main() -> None:
     ax.set_xlabel("CPR (nodes in connected components / total changed nodes)")
     ax.set_ylabel("Number of PRs")
     title_suffix = " (defined-only: n_nodes>0)" if args.defined_only else ""
-    ax.set_title(f"PR connectivity participation (CPR) — all repos{title_suffix}")
+    ax.set_title(f"PR vs. Connectivity Participation Ratio (CPR){title_suffix}")
 
     for x, color in ((0.5, "tab:orange"), (0.8, "tab:red")):
         ax.axvline(x, color=color, linestyle="--", linewidth=1.5, alpha=0.9)

@@ -216,7 +216,7 @@ def plot_fn_class_broken(
         series, bins=bin_edges, edgecolor='black', alpha=0.85, color='tab:orange'
     )
 
-    ax.set_title(f"Fn/class added/modified — {title}")
+    ax.set_title("PR vs. Func/Class")
     ax.set_ylabel('PRs')
 
     xlabel = 'Fn/class added/modified'
@@ -320,6 +320,8 @@ def plot_histogram(
     ax = fig.axes[0] if fig.axes else None
     if ax is not None:
         ax.set_ylabel('PRs')
+        if 'pyfile' in label_kind:
+            ax.set_title("PR vs Files")
         # The render() functions prepend their own text; we pass a short suffix.
         # Keep x-labels short and consistent across aggregate plots.
         if 'pyfile' in label_kind:
