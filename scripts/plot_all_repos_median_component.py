@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Plot per-PR median component size across PRs.
+"""Plot per-PR median flow size across PRs.
 
 We exclude singletons from the metric by construction:
-- For a PR with >=1 connected component (size >= 2),
+- For a PR with >=1 flow (size >= 2),
   value = median(connected_component_sizes).
-- Otherwise (no connected components, including n_nodes==0),
+- Otherwise (no flows, including n_nodes==0),
   value = 0.
 
 --defined-only drops PRs with n_nodes==0.
@@ -47,7 +47,7 @@ DEFAULT_OUT_DEFINED_ONLY = (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Median connected component size across PRs.")
+    p = argparse.ArgumentParser(description="Median flow size across PRs.")
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
     p.add_argument(
@@ -130,10 +130,10 @@ def main() -> None:
     ax.hist(clipped2, bins=bins, edgecolor="black", alpha=0.88, color="tab:purple")
 
     ax.set_xlim(-X_AXIS_PAD, x_hi2 + X_AXIS_PAD)
-    ax.set_xlabel("Median connected component size (nodes; 0 means none)")
+    ax.set_xlabel("Median flow size (nodes; 0 means none)")
     ax.set_ylabel("Number of PRs")
     ax.set_title(
-        "PR vs. Median Connected Component Size"
+        "PR vs. Median Flow Size"
         + (" (defined-only: n_nodes>0)" if args.defined_only else "")
     )
 

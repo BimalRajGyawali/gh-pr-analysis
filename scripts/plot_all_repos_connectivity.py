@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Plot CPR distribution from aggregate_pr_connectivity.json.
+Plot FPR distribution from aggregate_pr_connectivity.json.
 
 Output:
   viz_output_all_repos/all_repos_pr_connectivity_cpr_histogram.png
@@ -23,13 +23,13 @@ DEFAULT_OUT_DEFINED_ONLY = (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Plot CPR distribution across PRs.")
+    p = argparse.ArgumentParser(description="Plot FPR distribution across PRs.")
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
     p.add_argument(
         "--defined-only",
         action="store_true",
-        help="Only include PRs with n_nodes>0 (CPR originally defined).",
+        help="Only include PRs with n_nodes>0 (FPR originally defined).",
     )
     return p
 
@@ -97,10 +97,10 @@ def main() -> None:
     ax.hist(cprs, bins=bin_edges, edgecolor="black", alpha=0.88, color="tab:blue")
 
     ax.set_xlim(0.0, 1.0)
-    ax.set_xlabel("CPR (nodes in connected components / total changed nodes)")
+    ax.set_xlabel("FPR (nodes in flows / total changed nodes)")
     ax.set_ylabel("Number of PRs")
     title_suffix = " (defined-only: n_nodes>0)" if args.defined_only else ""
-    ax.set_title(f"PR vs. Connectivity Participation Ratio (CPR){title_suffix}")
+    ax.set_title(f"PR vs. Flow Participation Rate (FPR){title_suffix}")
 
     for x, color in ((0.5, "tab:orange"), (0.8, "tab:red")):
         ax.axvline(x, color=color, linestyle="--", linewidth=1.5, alpha=0.9)
@@ -109,19 +109,19 @@ def main() -> None:
         info = (
             f"PRs total: {n_total:,}\n"
             f"PRs with n_nodes>0: {n_nodes_pos:,} ({pct(n_nodes_pos, n_total):.1f}%)\n"
-            f"CPR defined here: {len(cprs):,}\n"
-            f"CPR > 0: {n_gt0:,} ({pct(n_gt0, n_total_effective):.1f}%)\n"
-            f"CPR >= 0.5: {n_ge50:,} ({pct(n_ge50, n_total_effective):.1f}%)\n"
-            f"CPR >= 0.8: {n_ge80:,} ({pct(n_ge80, n_total_effective):.1f}%)"
+            f"FPR defined here: {len(cprs):,}\n"
+            f"FPR > 0: {n_gt0:,} ({pct(n_gt0, n_total_effective):.1f}%)\n"
+            f"FPR >= 0.5: {n_ge50:,} ({pct(n_ge50, n_total_effective):.1f}%)\n"
+            f"FPR >= 0.8: {n_ge80:,} ({pct(n_ge80, n_total_effective):.1f}%)"
         )
     else:
         info = (
             f"PRs total: {n_total:,}\n"
-            f"CPR originally defined: {n_defined:,} ({pct(n_defined, n_total):.1f}%)\n"
-            f"CPR null treated as 0: {n_missing:,} ({pct(n_missing, n_total):.1f}%)\n"
-            f"CPR > 0: {n_gt0:,} ({pct(n_gt0, n_total_effective):.1f}%)\n"
-            f"CPR >= 0.5: {n_ge50:,} ({pct(n_ge50, n_total_effective):.1f}%)\n"
-            f"CPR >= 0.8: {n_ge80:,} ({pct(n_ge80, n_total_effective):.1f}%)"
+            f"FPR originally defined: {n_defined:,} ({pct(n_defined, n_total):.1f}%)\n"
+            f"FPR null treated as 0: {n_missing:,} ({pct(n_missing, n_total):.1f}%)\n"
+            f"FPR > 0: {n_gt0:,} ({pct(n_gt0, n_total_effective):.1f}%)\n"
+            f"FPR >= 0.5: {n_ge50:,} ({pct(n_ge50, n_total_effective):.1f}%)\n"
+            f"FPR >= 0.8: {n_ge80:,} ({pct(n_ge80, n_total_effective):.1f}%)"
         )
     ax.text(
         0.985,
