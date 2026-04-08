@@ -5,4 +5,5 @@ repos_analysed/**
 test.py
 trash/**
 viz_output_all_repos/*.json
+viz_output_all_repos/pr_component_graphs/
 .DS_Store

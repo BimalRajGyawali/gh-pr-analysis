@@ -50,6 +50,10 @@ def apply_nice_style(fig: plt.Figure) -> None:
         ax.tick_params(axis="both", which="major", labelsize=9.5, length=4)
 
 
+def pct(n: int, d: int) -> float:
+    return (100.0 * n / d) if d else 0.0
+
+
 
 from gh_pr_analysis.paths import pr_snapshots_dir_for_reading
 from gh_pr_analysis.plots import fn_class_histogram as fn_plot
@@ -244,6 +248,28 @@ def plot_fn_class_broken(
             color='black',
         )
 
+    # Threshold breakdown (computed on raw counts, not the clipped series).
+    n_total_raw = len(raw)
+    thresholds = [1, 2, 5, 10, 20, 40]
+    gt0 = sum(1 for c in raw if c > 0)
+    ge = {t: sum(1 for c in raw if c >= t) for t in thresholds}
+    info_lines = [
+        f"PRs total: {n_total_raw:,}",
+        f">0: {gt0:,} ({pct(gt0, n_total_raw):.1f}%)",
+    ]
+    for t in thresholds[1:]:
+        info_lines.append(f">={t}: {ge[t]:,} ({pct(ge[t], n_total_raw):.1f}%)")
+    ax.text(
+        0.985,
+        0.98,
+        "\n".join(info_lines),
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=9,
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.92, "edgecolor": "#cccccc"},
+    )
+
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.20)
     lo, hi_y = ax.get_ylim()
@@ -307,6 +333,39 @@ def plot_histogram(
             xlab = f"{xlab} (last bin ≥{hi})"
         ax.set_xlabel(xlab)
         ax.set_xlim(-0.5, hi + 0.5)
+
+        # Threshold breakdown (computed on raw counts, not the clipped series).
+        if 'pyfile' in label_kind:
+            thresholds = [1, 2, 3, 5, 10, 25]
+        elif 'fn/class' in label_kind:
+            thresholds = [1, 2, 5, 10, 20, 40]
+        else:
+            thresholds = []
+        if thresholds:
+            n_total_raw = len(raw)
+            gt0 = sum(1 for c in raw if c > 0)
+            ge = {t: sum(1 for c in raw if c >= t) for t in thresholds}
+            info_lines = [
+                f"PRs total: {n_total_raw:,}",
+                f">0: {gt0:,} ({pct(gt0, n_total_raw):.1f}%)",
+            ]
+            for t in thresholds[1:]:
+                info_lines.append(f">={t}: {ge[t]:,} ({pct(ge[t], n_total_raw):.1f}%)")
+            ax.text(
+                0.985,
+                0.98,
+                "\n".join(info_lines),
+                transform=ax.transAxes,
+                ha="right",
+                va="top",
+                fontsize=9,
+                bbox={
+                    "boxstyle": "round",
+                    "facecolor": "white",
+                    "alpha": 0.92,
+                    "edgecolor": "#cccccc",
+                },
+            )
     if ax is not None and 'fn/class' in label_kind:
         # X ticks every 4 (aggregate fn/class only).
         ax.xaxis.set_major_locator(MultipleLocator(4))
