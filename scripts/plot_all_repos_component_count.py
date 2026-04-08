@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Plot distribution of the number of multi-node connected components per PR.
+Plot distribution of the number of connected components per PR.
 
 Metric:
   connected_component_count = number of connected components with size >= 2
@@ -38,7 +38,7 @@ DEFAULT_OUT_DEFINED_ONLY = (
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Plot connected_component_count (multi-node components) across all PRs."
+        description="Plot connected_component_count  across all PRs."
     )
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
@@ -102,10 +102,10 @@ def main() -> None:
     ax.hist(clipped, bins=bins, edgecolor="black", alpha=0.88, color="tab:blue")
 
     ax.set_xlim(-X_AXIS_PAD, x_hi + X_AXIS_PAD)
-    ax.set_xlabel("Number of multi-node connected components per PR (size ≥ 2)")
+    ax.set_xlabel("Number of connected components per PR (size ≥ 2)")
     ax.set_ylabel("Number of PRs")
     ax.set_title(
-        "Connected components per PR — all repos"
+        "PR vs. Connected Component Count"
         + (" (defined-only: n_nodes>0)" if args.defined_only else "")
     )
 

@@ -16,17 +16,17 @@
 
 ---
 
-3) PR vs. Component Count
+3) PR vs. Connected Component Count
 
 ![PR vs. Component Count](./viz_output_all_repos/all_repos_pr_component_count_histogram_merged.png)
 
 ---
 
 
-4) PR vs. Largest Component Size 
+4) PR vs. Largest Connected Component Size 
 ![PR vs. Largest Component Size](./viz_output_all_repos/all_repos_pr_largest_component_histogram_merged.png)
 
 --- 
 
-5) PR vs. Median Component Size
+5) PR vs. Median Connected Component Size
 ![PR vs. Median Component Size](./viz_output_all_repos/all_repos_pr_median_component_histogram_merged.png)

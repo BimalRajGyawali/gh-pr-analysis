@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Plot largest multi-node connected-component size per PR.
+"""Plot largest connected-component size per PR.
 
 We exclude singletons from the metric by construction:
-- If a PR has >=1 multi-node connected component (size >= 2),
+- If a PR has >=1 connected component (size >= 2),
   largest = max(connected_component_sizes).
-- Otherwise (no multi-node components, including n_nodes==0),
+- Otherwise (no connected components, including n_nodes==0),
   largest = 0.
 
 Two variants are supported:
@@ -45,7 +45,7 @@ DEFAULT_OUT_DEFINED_ONLY = (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Largest multi-node component size across PRs.")
+    p = argparse.ArgumentParser(description="Largest connected component size across PRs.")
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
     p.add_argument(
@@ -126,10 +126,10 @@ def main() -> None:
     ax.hist(clipped, bins=bins, edgecolor="black", alpha=0.88, color="tab:blue")
 
     ax.set_xlim(-X_AXIS_PAD, x_hi + X_AXIS_PAD)
-    ax.set_xlabel("Largest multi-node component size (nodes; 0 means none)")
+    ax.set_xlabel("Largest connected component size (nodes; 0 means none)")
     ax.set_ylabel("Number of PRs")
     ax.set_title(
-        "Largest multi-node connected component size — all repos"
+        "PR vs. Largest Connected Component Size"
         + (" (defined-only: n_nodes>0)" if args.defined_only else "")
     )
 
