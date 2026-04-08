@@ -11,22 +11,22 @@
 
 ---
 
-2) PR vs. Connectivity Participation Ratio (CPR)  
-![PR vs. Connectivity Participation Ratio (CPR)](./viz_output_all_repos/all_repos_pr_connectivity_cpr_histogram_merged.png)
+2) PR vs. Flow Participation Ratio (FPR)  
+![PR vs. Flow Participation Ratio (FPR)](./viz_output_all_repos/all_repos_pr_connectivity_cpr_histogram_merged.png)
 
 ---
 
-3) PR vs. Connected Component Count
+3) PR vs. Flow Count
 
-![PR vs. Component Count](./viz_output_all_repos/all_repos_pr_component_count_histogram_merged.png)
+![PR vs. Flow Count](./viz_output_all_repos/all_repos_pr_Flow_count_histogram_merged.png)
 
 ---
 
 
-4) PR vs. Largest Connected Component Size 
-![PR vs. Largest Component Size](./viz_output_all_repos/all_repos_pr_largest_component_histogram_merged.png)
+4) PR vs. Largest Flow Size 
+![PR vs. Largest Flow Size](./viz_output_all_repos/all_repos_pr_largest_Flow_histogram_merged.png)
 
 --- 
 
-5) PR vs. Median Connected Component Size
-![PR vs. Median Component Size](./viz_output_all_repos/all_repos_pr_median_component_histogram_merged.png)
+5) PR vs. Median Flow Size
+![PR vs. Median Flow Size](./viz_output_all_repos/all_repos_pr_median_Flow_histogram_merged.png)

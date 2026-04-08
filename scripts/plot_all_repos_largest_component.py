@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Plot largest connected-component size per PR.
+"""Plot largest flow size per PR.
 
 We exclude singletons from the metric by construction:
-- If a PR has >=1 connected component (size >= 2),
+- If a PR has >=1 flow (size >= 2),
   largest = max(connected_component_sizes).
-- Otherwise (no connected components, including n_nodes==0),
+- Otherwise (no flows, including n_nodes==0),
   largest = 0.
 
 Two variants are supported:
 - Default: include all PRs (including n_nodes==0) and treat missing as 0.
 - --defined-only: only include PRs with n_nodes>0.
 
-The goal is a CPR-like histogram where zeros represent "no connected components"
+The goal is an FPR-like histogram where zeros represent "no flows"
 under this multi-node definition.
 
 Output (default):
@@ -45,7 +45,7 @@ DEFAULT_OUT_DEFINED_ONLY = (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Largest connected component size across PRs.")
+    p = argparse.ArgumentParser(description="Largest flow size across PRs.")
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
     p.add_argument(
@@ -126,10 +126,10 @@ def main() -> None:
     ax.hist(clipped, bins=bins, edgecolor="black", alpha=0.88, color="tab:blue")
 
     ax.set_xlim(-X_AXIS_PAD, x_hi + X_AXIS_PAD)
-    ax.set_xlabel("Largest connected component size (nodes; 0 means none)")
+    ax.set_xlabel("Largest flow size (nodes; 0 means none)")
     ax.set_ylabel("Number of PRs")
     ax.set_title(
-        "PR vs. Largest Connected Component Size"
+        "PR vs. Largest Flow Size"
         + (" (defined-only: n_nodes>0)" if args.defined_only else "")
     )
 

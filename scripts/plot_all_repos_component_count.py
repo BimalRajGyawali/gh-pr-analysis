@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Plot distribution of the number of connected components per PR.
+Plot distribution of the number of flows per PR.
 
 Metric:
-  connected_component_count = number of connected components with size >= 2
+  connected_component_count = number of flows with size >= 2
   in the induced changed-symbol call graph.
 
 All PRs are included:
@@ -38,7 +38,7 @@ DEFAULT_OUT_DEFINED_ONLY = (
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Plot connected_component_count  across all PRs."
+        description="Plot flow count across all PRs."
     )
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
@@ -102,19 +102,19 @@ def main() -> None:
     ax.hist(clipped, bins=bins, edgecolor="black", alpha=0.88, color="tab:blue")
 
     ax.set_xlim(-X_AXIS_PAD, x_hi + X_AXIS_PAD)
-    ax.set_xlabel("Number of connected components per PR (size ≥ 2)")
+    ax.set_xlabel("Number of flows per PR (nodes ≥ 2)")
     ax.set_ylabel("Number of PRs")
     ax.set_title(
-        "PR vs. Connected Component Count"
+        "PR vs. Flow Count"
         + (" (defined-only: n_nodes>0)" if args.defined_only else "")
     )
 
     info_lines = [
         f"PRs total: {n_total:,}",
-        f"components > 0: {n_gt0:,} ({pct(n_gt0, n_total):.1f}%)",
+        f"flows > 0: {n_gt0:,} ({pct(n_gt0, n_total):.1f}%)",
     ]
     for t in thresholds[1:]:
-        info_lines.append(f"components ≥ {t}: {n_ge[t]:,} ({pct(n_ge[t], n_total):.1f}%)")
+        info_lines.append(f"flows ≥ {t}: {n_ge[t]:,} ({pct(n_ge[t], n_total):.1f}%)")
 
     if merged_tail:
         info_lines.append(f"Tail merged at {x_hi}+: {format_share_pct(sum(1 for c in counts if c > x_hi), n_total)}")
