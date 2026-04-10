@@ -63,15 +63,3 @@
 9) PR vs. Median Flow Size
 
 ![PR vs. median flow](./viz_output_all_repos/flows/all_repos_pr_median_flow_histogram_merged.png)
-
----
-
-### Per-PR Graphs
-
-10) Flow graphs (per PR)
-
-`./viz_output_all_repos/graphs/flows/<repo_slug>/pr_<n>__flows.png`
-
-11) Connected-component graphs (per PR)
-
-`./viz_output_all_repos/graphs/cc/<repo_slug>/pr_<n>__connected_components.png`
