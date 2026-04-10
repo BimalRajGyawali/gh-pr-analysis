@@ -1,24 +1,12 @@
 #!/usr/bin/env python3
-"""Plot per-PR median flow size across PRs.
+"""Plot median root flow size per PR (among flows of size ≥ 2).
 
-We exclude singletons from the metric by construction:
-- For a PR with >=1 flow (size >= 2),
-  value = median(connected_component_sizes).
-- Otherwise (no flows, including n_nodes==0),
-  value = 0.
-
---defined-only drops PRs with n_nodes==0.
-
-Histogram includes 0, so we plot on a linear x-axis.
-To keep exact half-integers (median of integer sizes), we histogram in units of
-0.5 nodes:
-  value2 = int(round(value * 2))
-  (0, 1, 2, 3, ...) maps back to value2/2.
+If a PR has no such flow (including n_nodes==0), value is 0.
 
 Output (default):
-  viz_output_all_repos/all_repos_pr_median_component_histogram.png
+  viz_output_all_repos/flows/all_repos_pr_median_flow_histogram.png
 Output (--defined-only):
-  viz_output_all_repos/all_repos_pr_median_component_histogram_defined_only.png
+  viz_output_all_repos/flows/all_repos_pr_median_flow_histogram_defined_only.png
 """
 
 from __future__ import annotations
@@ -38,16 +26,16 @@ if str(_ROOT) not in sys.path:
 
 from gh_pr_analysis.plots.histogram_style import X_AXIS_PAD, axis_hi_and_clip, format_share_pct
 
-
-DEFAULT_IN = _ROOT / "viz_output_all_repos" / "aggregate_pr_connectivity.json"
-DEFAULT_OUT = _ROOT / "viz_output_all_repos" / "all_repos_pr_median_component_histogram.png"
-DEFAULT_OUT_DEFINED_ONLY = (
-    _ROOT / "viz_output_all_repos" / "all_repos_pr_median_component_histogram_defined_only.png"
-)
+_DEFAULT_VIZ = _ROOT / "viz_output_all_repos"
+_DEFAULT_CC = _DEFAULT_VIZ / "connected_components"
+_DEFAULT_FLOWS = _DEFAULT_VIZ / "flows"
+DEFAULT_IN = _DEFAULT_CC / "aggregate_pr_connectivity.json"
+DEFAULT_OUT = _DEFAULT_FLOWS / "all_repos_pr_median_flow_histogram.png"
+DEFAULT_OUT_DEFINED_ONLY = _DEFAULT_FLOWS / "all_repos_pr_median_flow_histogram_defined_only.png"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Median flow size across PRs.")
+    p = argparse.ArgumentParser(description="Median root flow size across PRs.")
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
     p.add_argument(
@@ -64,14 +52,13 @@ def pct(n: int, d: int) -> float:
 
 def median_for_row(r: dict) -> int:
     """Return median size in units of 0.5 nodes (value2)."""
-    cc = r.get("connected_component_count")
-    connected_sizes = r.get("connected_component_sizes")
+    fc = r.get("forward_flow_count_ge2")
+    sizes = r.get("forward_multinode_closure_sizes")
 
-    if isinstance(cc, int) and cc > 0 and isinstance(connected_sizes, list) and connected_sizes:
-        nums = [s for s in connected_sizes if isinstance(s, (int, float))]
+    if isinstance(fc, int) and fc > 0 and isinstance(sizes, list) and sizes:
+        nums = [s for s in sizes if isinstance(s, (int, float))]
         if nums:
             med = statistics.median(nums)
-            # nums are component sizes (integers). median is integer or .5; multiply by 2.
             return int(round(float(med) * 2.0))
     return 0
 
@@ -99,14 +86,10 @@ def main() -> None:
         raise SystemExit(f"Invalid stats file (missing per_pr array): {stats}")
 
     values2: list[int] = []
-    n_nodes_pos = 0
-
     for r in rows:
         if not isinstance(r, dict):
             continue
         nn = r.get("n_nodes")
-        if isinstance(nn, int) and nn > 0:
-            n_nodes_pos += 1
         if args.defined_only and not (isinstance(nn, int) and nn > 0):
             continue
         values2.append(median_for_row(r))
@@ -120,29 +103,27 @@ def main() -> None:
     n_nonzero = len(nonzero2)
 
     thresholds_nodes = [5, 6, 10, 20]
-    thresholds2 = [2 * t for t in thresholds_nodes]
     n_ge = {t: sum(1 for v2 in values2 if v2 >= 2 * t) for t in thresholds_nodes}
 
     x_hi2, clipped2, merged_tail = axis_hi_and_clip(values2, q=0.99, slop=2)
 
     fig, ax = plt.subplots(figsize=(12.5, 6.0))
     bins = list(range(0, x_hi2 + 2))
-    ax.hist(clipped2, bins=bins, edgecolor="black", alpha=0.88, color="tab:purple")
+    ax.hist(clipped2, bins=bins, edgecolor="black", alpha=0.88, color="tab:olive")
 
     ax.set_xlim(-X_AXIS_PAD, x_hi2 + X_AXIS_PAD)
-    ax.set_xlabel("Median flow size (nodes; 0 means none)")
+    ax.set_xlabel("Median flow (nodes)")
     ax.set_ylabel("Number of PRs")
     ax.set_title(
-        "PR vs. Median Flow Size"
+        "PR vs. median flow"
         + (" (defined-only: n_nodes>0)" if args.defined_only else "")
     )
 
-    # Reference lines.
+    thresholds2 = [2 * t for t in thresholds_nodes]
     for t in thresholds2:
         if t <= x_hi2:
             ax.axvline(t, color="#666666", linestyle="--", linewidth=1.2, alpha=0.7)
 
-    # Tick labels in node units (0.5 increments).
     xticks = list(range(0, x_hi2 + 1, 2))
     ax.set_xticks(xticks)
     ax.set_xticklabels([str(x / 2) for x in xticks])
@@ -155,7 +136,11 @@ def main() -> None:
         f"median == 0: {n_zero:,} ({pct(n_zero, n_total):.1f}%)",
     ]
     for t in thresholds_nodes:
-        info_lines.append(f"median ≥ {t}: {n_ge[t]:,} ({pct(n_ge[t], n_nonzero):.1f}%)" if n_nonzero else f"median ≥ {t}: {n_ge[t]:,} (—)")
+        info_lines.append(
+            f"median ≥ {t}: {n_ge[t]:,} ({pct(n_ge[t], n_nonzero):.1f}%)"
+            if n_nonzero
+            else f"median ≥ {t}: {n_ge[t]:,} (—)"
+        )
 
     if merged_tail:
         info_lines.append(

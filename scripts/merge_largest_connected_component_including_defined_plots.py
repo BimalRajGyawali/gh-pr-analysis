@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Merge CPR histograms (all PRs vs n_nodes>0 only) stacked vertically.
+Merge largest connected-component size histograms (all PRs vs n_nodes>0 only) stacked vertically.
 
-Run after `scripts/plot_all_repos_cpr.py` has written:
-  viz_output_all_repos/connected_components/all_repos_pr_cpr_histogram.png
-  viz_output_all_repos/connected_components/all_repos_pr_cpr_histogram_defined_only.png
+Run after `scripts/plot_all_repos_largest_connected_component.py` has written:
+  viz_output_all_repos/connected_components/all_repos_pr_largest_connected_component_histogram.png
+  viz_output_all_repos/connected_components/all_repos_pr_largest_connected_component_histogram_defined_only.png
 
 Output:
-  viz_output_all_repos/connected_components/all_repos_pr_cpr_histogram_merged.png
+  viz_output_all_repos/connected_components/all_repos_pr_largest_connected_component_histogram_merged.png
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ import numpy as np
 _ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = _ROOT / "viz_output_all_repos" / "connected_components"
 
-ALL_NAME = "all_repos_pr_cpr_histogram.png"
-DEFINED_NAME = "all_repos_pr_cpr_histogram_defined_only.png"
-MERGED_NAME = "all_repos_pr_cpr_histogram_merged.png"
+ALL_NAME = "all_repos_pr_largest_connected_component_histogram.png"
+DEFINED_NAME = "all_repos_pr_largest_connected_component_histogram_defined_only.png"
+MERGED_NAME = "all_repos_pr_largest_connected_component_histogram_merged.png"
 
 
 def load_png(path: Path) -> np.ndarray:

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Plot FPR distribution from aggregate_pr_connectivity.json.
+Plot distribution of CPR (connected-component participation ratio) from aggregate JSON.
+
+CPR = nodes in connected components of size ≥2, divided by all changed nodes.
 
 Output:
-  viz_output_all_repos/all_repos_pr_connectivity_cpr_histogram.png
+  viz_output_all_repos/connected_components/all_repos_pr_cpr_histogram.png
 """
 
 from __future__ import annotations
@@ -15,21 +17,32 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 _ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_IN = _ROOT / "viz_output_all_repos" / "aggregate_pr_connectivity.json"
-DEFAULT_OUT = _ROOT / "viz_output_all_repos" / "all_repos_pr_connectivity_cpr_histogram.png"
-DEFAULT_OUT_DEFINED_ONLY = (
-    _ROOT / "viz_output_all_repos" / "all_repos_pr_connectivity_cpr_histogram_defined_only.png"
-)
+
+_DEFAULT_VIZ = _ROOT / "viz_output_all_repos"
+_DEFAULT_CC = _DEFAULT_VIZ / "connected_components"
+DEFAULT_IN = _DEFAULT_CC / "aggregate_pr_connectivity.json"
+DEFAULT_OUT = _DEFAULT_CC / "all_repos_pr_cpr_histogram.png"
+DEFAULT_OUT_DEFINED_ONLY = _DEFAULT_CC / "all_repos_pr_cpr_histogram_defined_only.png"
+
+
+def cpr_for_row(r: dict) -> float | None:
+    v = r.get("cpr")
+    if isinstance(v, (int, float)):
+        return float(v)
+    v = r.get("connected_component_participation")
+    if isinstance(v, (int, float)):
+        return float(v)
+    return None
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Plot FPR distribution across PRs.")
+    p = argparse.ArgumentParser(description="Plot CPR across PRs.")
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
     p.add_argument(
         "--defined-only",
         action="store_true",
-        help="Only include PRs with n_nodes>0 (FPR originally defined).",
+        help="Only include PRs with n_nodes>0.",
     )
     return p
 
@@ -59,9 +72,8 @@ def main() -> None:
     if not isinstance(rows, list):
         raise SystemExit(f"Invalid stats file (missing per_pr array): {stats}")
 
-    cprs: list[float] = []
+    values: list[float] = []
     n_total = len(rows)
-    n_defined = 0
     n_nodes_pos = 0
     for r in rows:
         if not isinstance(r, dict):
@@ -69,59 +81,59 @@ def main() -> None:
         nn = r.get("n_nodes")
         if isinstance(nn, int) and nn > 0:
             n_nodes_pos += 1
-        v = r.get("cpr")
-        if isinstance(v, (int, float)):
-            cprs.append(float(v))
-            n_defined += 1
-        else:
-            if args.defined_only:
+        cv = cpr_for_row(r)
+        if args.defined_only:
+            if not (isinstance(nn, int) and nn > 0):
                 continue
-            cprs.append(0.0)
+            values.append(cv if cv is not None else 0.0)
+        else:
+            if isinstance(nn, int) and nn <= 0:
+                values.append(0.0)
+            else:
+                values.append(cv if cv is not None else 0.0)
 
-    if not cprs:
+    if not values:
         raise SystemExit("No PR rows available to plot.")
 
-    if args.defined_only:
-        n_total_effective = n_nodes_pos
-        n_missing = 0
-    else:
-        n_total_effective = n_total
-        n_missing = n_total - n_defined
-    n_gt0 = sum(1 for x in cprs if x > 0.0)
-    n_ge50 = sum(1 for x in cprs if x >= 0.5)
-    n_ge80 = sum(1 for x in cprs if x >= 0.8)
+    n_total_effective = len(values)
+    n_gt0 = sum(1 for x in values if x > 0.0)
+    n_ge50 = sum(1 for x in values if x >= 0.5)
+    n_ge80 = sum(1 for x in values if x >= 0.8)
 
-    # 20 bins in [0, 1].
     bin_edges = [i / 20 for i in range(21)]
     fig, ax = plt.subplots(figsize=(12.5, 6.0))
-    ax.hist(cprs, bins=bin_edges, edgecolor="black", alpha=0.88, color="tab:blue")
+    ax.hist(values, bins=bin_edges, edgecolor="black", alpha=0.88, color="tab:blue")
 
     ax.set_xlim(0.0, 1.0)
-    ax.set_xlabel("FPR (nodes in flows / total changed nodes)")
+    ax.set_xlabel("CPR")
     ax.set_ylabel("Number of PRs")
     title_suffix = " (defined-only: n_nodes>0)" if args.defined_only else ""
-    ax.set_title(f"PR vs. Flow Participation Rate (FPR){title_suffix}")
+    ax.set_title(
+        f"PR vs. CPR{title_suffix}\n"
+        "(nodes in components of size ≥2 / changed nodes)"
+    )
 
     for x, color in ((0.5, "tab:orange"), (0.8, "tab:red")):
         ax.axvline(x, color=color, linestyle="--", linewidth=1.5, alpha=0.9)
 
     if args.defined_only:
         info = (
+            "CPR = nodes in components of size ≥2 / changed nodes\n"
             f"PRs total: {n_total:,}\n"
             f"PRs with n_nodes>0: {n_nodes_pos:,} ({pct(n_nodes_pos, n_total):.1f}%)\n"
-            f"FPR defined here: {len(cprs):,}\n"
-            f"FPR > 0: {n_gt0:,} ({pct(n_gt0, n_total_effective):.1f}%)\n"
-            f"FPR >= 0.5: {n_ge50:,} ({pct(n_ge50, n_total_effective):.1f}%)\n"
-            f"FPR >= 0.8: {n_ge80:,} ({pct(n_ge80, n_total_effective):.1f}%)"
+            f"Plotted: {len(values):,}\n"
+            f"CPR > 0: {n_gt0:,} ({pct(n_gt0, n_total_effective):.1f}%)\n"
+            f"CPR >= 0.5: {n_ge50:,} ({pct(n_ge50, n_total_effective):.1f}%)\n"
+            f"CPR >= 0.8: {n_ge80:,} ({pct(n_ge80, n_total_effective):.1f}%)"
         )
     else:
         info = (
+            "CPR = nodes in components of size ≥2 / changed nodes\n"
             f"PRs total: {n_total:,}\n"
-            f"FPR originally defined: {n_defined:,} ({pct(n_defined, n_total):.1f}%)\n"
-            f"FPR null treated as 0: {n_missing:,} ({pct(n_missing, n_total):.1f}%)\n"
-            f"FPR > 0: {n_gt0:,} ({pct(n_gt0, n_total_effective):.1f}%)\n"
-            f"FPR >= 0.5: {n_ge50:,} ({pct(n_ge50, n_total_effective):.1f}%)\n"
-            f"FPR >= 0.8: {n_ge80:,} ({pct(n_ge80, n_total_effective):.1f}%)"
+            f"n_nodes==0 plotted as 0: {sum(1 for r in rows if isinstance(r, dict) and r.get('n_nodes') == 0):,}\n"
+            f"CPR > 0: {n_gt0:,} ({pct(n_gt0, n_total_effective):.1f}%)\n"
+            f"CPR >= 0.5: {n_ge50:,} ({pct(n_ge50, n_total_effective):.1f}%)\n"
+            f"CPR >= 0.8: {n_ge80:,} ({pct(n_ge80, n_total_effective):.1f}%)"
         )
     ax.text(
         0.985,

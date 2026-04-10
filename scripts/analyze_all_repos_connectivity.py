@@ -5,6 +5,13 @@ Compute PR-level connectivity metrics from already-fetched snapshots under repos
 This script is intentionally post-processing only (no API usage). It reads snapshot.json
 files, uses changed symbols recorded in python_fn_class_analysis, infers changed->changed
 call edges from downloaded head files, and writes aggregate metrics for downstream plots.
+
+Metrics:
+  - Weakly connected components (undirected partition of the directed call graph among
+    changed symbols): ``connected_component_*`` and ``cpr`` (connected-component
+    participation ratio: nodes in multinode components / n_nodes).
+  - Flows from roots (in-degree 0, forward callee edges only): ``forward_*``.
+    ``forward_reach_coverage`` uses the union of multi-node root closures / n_nodes.
 """
 
 from __future__ import annotations
@@ -38,7 +45,7 @@ class SymbolNode:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=(
-            "Analyze connected components for changed Python functions/methods/classes "
+            "Analyze connected components and root flows for changed Python functions/methods/classes "
             "from repos_analysed snapshots."
         )
     )
@@ -51,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--out",
         type=Path,
-        default=_ROOT / "viz_output_all_repos" / "aggregate_pr_connectivity.json",
+        default=_ROOT / "viz_output_all_repos" / "connected_components" / "aggregate_pr_connectivity.json",
         help="Output JSON path.",
     )
     p.add_argument(
@@ -314,6 +321,7 @@ def build_changed_edges(
 
 
 def component_sizes(nodes: set[str], edges: set[tuple[str, str]]) -> list[int]:
+    """Undirected connected component sizes (weakly connected on directed edges)."""
     if not nodes:
         return []
     adj: dict[str, set[str]] = {n: set() for n in nodes}
@@ -343,6 +351,82 @@ def component_sizes(nodes: set[str], edges: set[tuple[str, str]]) -> list[int]:
     return sizes
 
 
+def forward_flow_from_roots_metrics(
+    node_keys: set[str],
+    directed: set[tuple[str, str]],
+) -> dict[str, Any]:
+    """Roots = in-degree 0; each root's flow size = |forward reachable set| (including root)."""
+    if not node_keys:
+        return {
+            "forward_root_count": 0,
+            "forward_closure_sizes": [],
+            "forward_flow_count_ge2": 0,
+            "forward_multinode_closure_sizes": [],
+            "largest_forward_multinode_closure_size": 0,
+            "mean_forward_multinode_closure_size": None,
+            "median_forward_multinode_closure_size": None,
+            "forward_union_reachable_count": 0,
+            "forward_union_reachable_count_ge2": 0,
+            "forward_reach_coverage": None,
+        }
+
+    n_nodes = len(node_keys)
+    out_adj: dict[str, set[str]] = {n: set() for n in node_keys}
+    in_deg: dict[str, int] = {n: 0 for n in node_keys}
+    for a, b in directed:
+        if a not in out_adj or b not in out_adj:
+            continue
+        out_adj[a].add(b)
+        in_deg[b] += 1
+
+    def reachable_set(start: str) -> set[str]:
+        seen: set[str] = {start}
+        stack = [start]
+        while stack:
+            u = stack.pop()
+            for v in out_adj[u]:
+                if v not in seen:
+                    seen.add(v)
+                    stack.append(v)
+        return seen
+
+    roots = [n for n in node_keys if in_deg[n] == 0]
+    union_reachable: set[str] = set()
+    union_reachable_multinode: set[str] = set()
+    closure_sizes: list[int] = []
+    for r in roots:
+        rset = reachable_set(r)
+        union_reachable |= rset
+        sz = len(rset)
+        closure_sizes.append(sz)
+        if sz >= 2:
+            union_reachable_multinode |= rset
+    closure_sizes.sort(reverse=True)
+    multinode = [s for s in closure_sizes if s >= 2]
+
+    if multinode:
+        mean_m = statistics.mean(multinode)
+        median_m = statistics.median(multinode)
+    else:
+        mean_m = None
+        median_m = None
+
+    largest_m = max(multinode) if multinode else 0
+
+    return {
+        "forward_root_count": len(roots),
+        "forward_closure_sizes": closure_sizes,
+        "forward_flow_count_ge2": len(multinode),
+        "forward_multinode_closure_sizes": multinode,
+        "largest_forward_multinode_closure_size": largest_m,
+        "mean_forward_multinode_closure_size": mean_m,
+        "median_forward_multinode_closure_size": median_m,
+        "forward_union_reachable_count": len(union_reachable),
+        "forward_union_reachable_count_ge2": len(union_reachable_multinode),
+        "forward_reach_coverage": len(union_reachable_multinode) / n_nodes,
+    }
+
+
 def summarize_pr(
     repo: str,
     pr_number: int,
@@ -353,21 +437,21 @@ def summarize_pr(
     node_keys = set(nodes_map.keys())
     directed = build_changed_edges(snapshot, pr_dir, nodes_map)
     undirected = {tuple(sorted((a, b))) for a, b in directed if a != b}
-    comps = component_sizes(node_keys, directed)
-    connected = [s for s in comps if s >= 2]
-    connected_nodes = sum(connected)
     n_nodes = len(node_keys)
-    cpr = None if n_nodes == 0 else connected_nodes / n_nodes
 
-    if connected:
-        mean_multi_component_size = statistics.mean(connected)
-        median_multi_component_size = statistics.median(connected)
+    comps = component_sizes(node_keys, directed)
+    multinode_cc = [s for s in comps if s >= 2]
+    nodes_in_multinode_cc = sum(multinode_cc)
+    cpr = None if n_nodes == 0 else nodes_in_multinode_cc / n_nodes
+    if multinode_cc:
+        mean_cc_m = statistics.mean(multinode_cc)
+        median_cc_m = statistics.median(multinode_cc)
     else:
-        mean_multi_component_size = None
-        median_multi_component_size = None
+        mean_cc_m = None
+        median_cc_m = None
+    largest_cc_partition = comps[0] if comps else 0
 
-    largest_component_size = comps[0] if comps else 0
-    lcc_fraction = None if n_nodes == 0 else largest_component_size / n_nodes
+    forward = forward_flow_from_roots_metrics(node_keys, directed)
 
     return {
         "repo": repo,
@@ -375,16 +459,15 @@ def summarize_pr(
         "n_nodes": n_nodes,
         "n_edges_directed": len(directed),
         "n_edges_undirected": len(undirected),
-        "connected_component_sizes": connected,
-        "connected_component_count": len(connected),
-        "singleton_count": sum(1 for s in comps if s == 1),
-        "singleton_nodes": sum(1 for s in comps if s == 1),
-        "nodes_in_connected_components": connected_nodes,
-        "largest_connected_component_size": largest_component_size,
-        "lcc_fraction": lcc_fraction,
-        "mean_multi_component_size": mean_multi_component_size,
-        "median_multi_component_size": median_multi_component_size,
+        "connected_component_sizes": multinode_cc,
+        "connected_component_count": len(multinode_cc),
+        "nodes_in_multinode_connected_components": nodes_in_multinode_cc,
         "cpr": cpr,
+        "largest_connected_component_partition_size": largest_cc_partition,
+        "largest_connected_component_size": max(multinode_cc) if multinode_cc else 0,
+        "mean_multinode_connected_component_size": mean_cc_m,
+        "median_multinode_connected_component_size": median_cc_m,
+        **forward,
     }
 
 
@@ -455,25 +538,38 @@ def main() -> None:
         if remaining is not None:
             remaining -= used
 
+    coverages = [
+        r["forward_reach_coverage"]
+        for r in per_pr
+        if isinstance(r.get("forward_reach_coverage"), (int, float))
+    ]
     cprs = [r["cpr"] for r in per_pr if isinstance(r.get("cpr"), (int, float))]
     payload: dict[str, Any] = {
         "_meta": {
-            "schema_version": 3,
+            "schema_version": 7,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "repos_root": str(repos_root),
             "bundle_count": len(bundle_rows),
             "pr_count": len(per_pr),
             "note": (
-                "Connected components are computed on an induced changed-symbol graph "
+                "Induced changed-symbol directed call graph "
                 "(functions and class/nested methods from python_fn_class_analysis; class defs excluded via AST). "
-                "CPR = nodes in components of size>=2 / total changed nodes. "
-                "largest_connected_component_size is the node count of the largest component in the full partition "
-                "(singletons included). lcc_fraction = largest_connected_component_size / n_nodes (LCC fraction). "
-                "mean_multi_component_size and median_multi_component_size are over multi-node component sizes only; "
-                "null when there are no multi-node components."
+                "Connected components: undirected (weakly connected) partition; "
+                "connected_component_sizes lists component sizes >=2 only; "
+                "connected_component_count = len(that list); "
+                "cpr (connected-component participation ratio) = nodes in multinode components / n_nodes; "
+                "largest_connected_component_size = max multinode component size (0 if none); "
+                "largest_connected_component_partition_size = largest component in full partition (singletons included). "
+                "Flows: forward_root_count = changed nodes with no incoming call from another changed node; "
+                "forward_closure_sizes = sorted sizes of forward reachable sets from each root (including the root); "
+                "forward_flow_count_ge2 counts roots whose forward closure has size>=2; "
+                "forward_multinode_closure_sizes lists those sizes (>=2) only; "
+                "forward_reach_coverage = |union of multi-node root closures| / n_nodes. "
+                "Flows may overlap and are not a partition."
             ),
         },
         "bundles": bundle_rows,
+        "forward_reach_coverage_per_pr": coverages,
         "cpr_per_pr": cprs,
         "per_pr": per_pr,
     }

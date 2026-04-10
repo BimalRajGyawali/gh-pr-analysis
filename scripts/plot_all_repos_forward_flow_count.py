@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 """
-Plot distribution of the number of flows per PR.
-
-Metric:
-  connected_component_count = number of flows with size >= 2
-  in the induced changed-symbol call graph.
+Plot distribution of the number of root flows per PR (flows of size ≥ 2 only).
 
 All PRs are included:
-  - If connected_component_count is missing (e.g. malformed row), treat as 0.
-  - If n_nodes == 0, upstream effectively yields connected_component_count == 0.
+  - If forward_flow_count_ge2 is missing (e.g. old aggregate), treat as 0.
+  - If n_nodes == 0, upstream effectively yields forward_flow_count_ge2 == 0.
 
 Output:
-  viz_output_all_repos/all_repos_pr_component_count_histogram.png
+  viz_output_all_repos/flows/all_repos_pr_flow_count_histogram.png
 """
 
 from __future__ import annotations
@@ -29,17 +25,16 @@ if str(_ROOT) not in sys.path:
 
 from gh_pr_analysis.plots.histogram_style import X_AXIS_PAD, axis_hi_and_clip, format_share_pct
 
-DEFAULT_IN = _ROOT / "viz_output_all_repos" / "aggregate_pr_connectivity.json"
-DEFAULT_OUT = _ROOT / "viz_output_all_repos" / "all_repos_pr_component_count_histogram.png"
-DEFAULT_OUT_DEFINED_ONLY = (
-    _ROOT / "viz_output_all_repos" / "all_repos_pr_component_count_histogram_defined_only.png"
-)
+_DEFAULT_VIZ = _ROOT / "viz_output_all_repos"
+_DEFAULT_CC = _DEFAULT_VIZ / "connected_components"
+_DEFAULT_FLOWS = _DEFAULT_VIZ / "flows"
+DEFAULT_IN = _DEFAULT_CC / "aggregate_pr_connectivity.json"
+DEFAULT_OUT = _DEFAULT_FLOWS / "all_repos_pr_flow_count_histogram.png"
+DEFAULT_OUT_DEFINED_ONLY = _DEFAULT_FLOWS / "all_repos_pr_flow_count_histogram_defined_only.png"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        description="Plot flow count across all PRs."
-    )
+    p = argparse.ArgumentParser(description="Plot root flow count per PR (flows of size ≥ 2).")
     p.add_argument("--stats", type=Path, default=DEFAULT_IN, help="Connectivity JSON path")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output PNG path")
     p.add_argument(
@@ -83,7 +78,7 @@ def main() -> None:
             nn = r.get("n_nodes")
             if not isinstance(nn, int) or nn <= 0:
                 continue
-        v = r.get("connected_component_count")
+        v = r.get("forward_flow_count_ge2")
         counts.append(int(v) if isinstance(v, int) and v >= 0 else 0)
 
     if not counts:
@@ -94,18 +89,17 @@ def main() -> None:
     thresholds = [1, 2, 3, 5, 10]
     n_ge = {t: sum(1 for c in counts if c >= t) for t in thresholds}
 
-    # Clip tail for readability: show up to p99 + 1 (merged tail).
     x_hi, clipped, merged_tail = axis_hi_and_clip(counts, q=0.99, slop=2)
 
     fig, ax = plt.subplots(figsize=(12.5, 6.0))
-    bins = list(range(0, x_hi + 2))  # integer bins [0..x_hi+1)
-    ax.hist(clipped, bins=bins, edgecolor="black", alpha=0.88, color="tab:blue")
+    bins = list(range(0, x_hi + 2))
+    ax.hist(clipped, bins=bins, edgecolor="black", alpha=0.88, color="tab:green")
 
     ax.set_xlim(-X_AXIS_PAD, x_hi + X_AXIS_PAD)
-    ax.set_xlabel("Number of flows per PR (nodes ≥ 2)")
+    ax.set_xlabel("Flows per PR")
     ax.set_ylabel("Number of PRs")
     ax.set_title(
-        "PR vs. Flow Count"
+        "PR vs. flow count"
         + (" (defined-only: n_nodes>0)" if args.defined_only else "")
     )
 
@@ -143,4 +137,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Merge CPR histograms (all PRs vs n_nodes>0 only) stacked vertically.
+Merge flow-count histograms (all PRs vs n_nodes>0 only) stacked vertically.
 
-Run after `scripts/plot_all_repos_cpr.py` has written:
-  viz_output_all_repos/connected_components/all_repos_pr_cpr_histogram.png
-  viz_output_all_repos/connected_components/all_repos_pr_cpr_histogram_defined_only.png
+Run after `scripts/plot_all_repos_forward_flow_count.py` has written:
+  viz_output_all_repos/flows/all_repos_pr_flow_count_histogram.png
+  viz_output_all_repos/flows/all_repos_pr_flow_count_histogram_defined_only.png
 
 Output:
-  viz_output_all_repos/connected_components/all_repos_pr_cpr_histogram_merged.png
+  viz_output_all_repos/flows/all_repos_pr_flow_count_histogram_merged.png
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 _ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = _ROOT / "viz_output_all_repos" / "connected_components"
+OUT_DIR = _ROOT / "viz_output_all_repos" / "flows"
 
-ALL_NAME = "all_repos_pr_cpr_histogram.png"
-DEFINED_NAME = "all_repos_pr_cpr_histogram_defined_only.png"
-MERGED_NAME = "all_repos_pr_cpr_histogram_merged.png"
+ALL_NAME = "all_repos_pr_flow_count_histogram.png"
+DEFINED_NAME = "all_repos_pr_flow_count_histogram_defined_only.png"
+MERGED_NAME = "all_repos_pr_flow_count_histogram_merged.png"
 
 
 def load_png(path: Path) -> np.ndarray:
@@ -39,7 +39,10 @@ def pad_to_same_width(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndar
         if img.shape[1] == w:
             return img
         h, w_old, channels = img.shape
-        bg_val = [1.0, 1.0, 1.0, 1.0] if channels == 4 else [1.0, 1.0, 1.0]
+        if channels == 4:
+            bg_val = [1.0, 1.0, 1.0, 1.0]
+        else:
+            bg_val = [1.0, 1.0, 1.0]
         canvas = np.ones((h, w, channels), dtype=img.dtype)
         for c, v in enumerate(bg_val):
             canvas[:, :, c] *= v

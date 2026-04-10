@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Merge component-count histograms (all PRs vs n_nodes>0 only) stacked vertically.
+Merge FPR histograms (all PRs vs n_nodes>0 only) stacked vertically.
 
-Run after `scripts/plot_all_repos_component_count.py` has written:
-  viz_output_all_repos/all_repos_pr_component_count_histogram.png
-  viz_output_all_repos/all_repos_pr_component_count_histogram_defined_only.png
+Run after `scripts/plot_all_repos_forward_reach_coverage.py` has written:
+  viz_output_all_repos/flows/all_repos_pr_fpr_histogram.png
+  viz_output_all_repos/flows/all_repos_pr_fpr_histogram_defined_only.png
 
 Output:
-  viz_output_all_repos/all_repos_pr_component_count_histogram_merged.png
+  viz_output_all_repos/flows/all_repos_pr_fpr_histogram_merged.png
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 _ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = _ROOT / "viz_output_all_repos"
+OUT_DIR = _ROOT / "viz_output_all_repos" / "flows"
 
-ALL_NAME = "all_repos_pr_component_count_histogram.png"
-DEFINED_NAME = "all_repos_pr_component_count_histogram_defined_only.png"
-MERGED_NAME = "all_repos_pr_component_count_histogram_merged.png"
+ALL_NAME = "all_repos_pr_fpr_histogram.png"
+DEFINED_NAME = "all_repos_pr_fpr_histogram_defined_only.png"
+MERGED_NAME = "all_repos_pr_fpr_histogram_merged.png"
 
 
 def load_png(path: Path) -> np.ndarray:
@@ -39,7 +39,6 @@ def pad_to_same_width(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndar
         if img.shape[1] == w:
             return img
         h, w_old, channels = img.shape
-        # White background by default.
         if channels == 4:
             bg_val = [1.0, 1.0, 1.0, 1.0]
         else:
@@ -65,7 +64,6 @@ def main() -> None:
 
     merged = np.concatenate([top, bottom], axis=0)
 
-    # Horizontal separator between panels.
     sep_h = max(8, int(round(0.01 * merged.shape[0])))
     channels = merged.shape[2]
     sep = np.ones((sep_h, merged.shape[1], channels), dtype=merged.dtype)
@@ -77,9 +75,10 @@ def main() -> None:
     merged = np.concatenate([top, sep, bottom], axis=0)
 
     plt.imsave(out_path, merged)
+    all_path.unlink(missing_ok=True)
+    def_path.unlink(missing_ok=True)
     print(f"Wrote {out_path}")
 
 
 if __name__ == "__main__":
     main()
-
