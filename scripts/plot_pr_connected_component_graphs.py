@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Render directed root-flow diagrams per PR from analyzed snapshots.
+Render weakly connected components per PR from analyzed snapshots.
 
-A flow is the forward reachable set from a root (changed symbol with in-degree 0 in
-the changed-symbol directed call graph). Flows can overlap.
+Components treat directed call edges as undirected for partitioning (same as
+aggregate ``connected_component_*`` metrics). Each panel draws directed call
+edges with arrows. Only components with at least two nodes are drawn unless
+``--include-singletons`` is set.
 """
 
 from __future__ import annotations
@@ -36,49 +38,51 @@ from analyze_all_repos_connectivity import (
 )
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Plot per-PR root flow graphs.")
+    p = argparse.ArgumentParser(description="Plot per-PR connected-component graphs.")
     p.add_argument("--repos-root", type=Path, default=_ROOT / "repos_analysed")
     p.add_argument(
         "--out-dir",
         type=Path,
-        default=_ROOT / "viz_output_all_repos" / "flows" / "pr_flow_graphs",
+        default=_ROOT / "viz_output_all_repos" / "connected_components" / "pr_connected_component_graphs",
     )
     p.add_argument("--limit-repos", type=int, default=None)
     p.add_argument("--limit-prs", type=int, default=None)
-    p.add_argument("--max-flows", type=int, default=12)
-    p.add_argument("--max-nodes-per-flow", type=int, default=80)
+    p.add_argument("--max-components", type=int, default=12)
+    p.add_argument("--max-nodes-per-component", type=int, default=80)
     p.add_argument(
-        "--include-singleton-roots",
+        "--include-singletons",
         action="store_true",
-        help="Also draw single-node flows.",
+        help="Also draw single-node components.",
     )
     return p
 
 
-def roots_and_adjacency(
-    nodes: set[str], directed: set[tuple[str, str]]
-) -> tuple[list[str], dict[str, set[str]]]:
-    out_adj: dict[str, set[str]] = {n: set() for n in nodes}
-    in_deg: dict[str, int] = {n: 0 for n in nodes}
+def undirected_components(nodes: set[str], directed: set[tuple[str, str]]) -> list[set[str]]:
+    adj: dict[str, set[str]] = {n: set() for n in nodes}
     for a, b in directed:
-        if a not in out_adj or b not in out_adj:
+        if a not in adj or b not in adj:
             continue
-        out_adj[a].add(b)
-        in_deg[b] += 1
-    roots = sorted([n for n in nodes if in_deg[n] == 0])
-    return roots, out_adj
+        adj[a].add(b)
+        adj[b].add(a)
 
-
-def reachable(start: str, out_adj: dict[str, set[str]]) -> set[str]:
-    seen: set[str] = {start}
-    stack = [start]
-    while stack:
-        u = stack.pop()
-        for v in out_adj[u]:
-            if v not in seen:
-                seen.add(v)
-                stack.append(v)
-    return seen
+    seen: set[str] = set()
+    comps: list[set[str]] = []
+    for n in nodes:
+        if n in seen:
+            continue
+        comp: set[str] = set()
+        stack = [n]
+        seen.add(n)
+        while stack:
+            cur = stack.pop()
+            comp.add(cur)
+            for nxt in adj[cur]:
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        comps.append(comp)
+    comps.sort(key=lambda c: len(c), reverse=True)
+    return comps
 
 
 def circular_layout(nodes: list[str], radius: float = 0.88) -> dict[str, tuple[float, float]]:
@@ -91,24 +95,24 @@ def circular_layout(nodes: list[str], radius: float = 0.88) -> dict[str, tuple[f
     return out
 
 
-def draw_pr_flows(
+def draw_pr_components(
     repo: str,
     pr_number: int,
     directed_edges: set[tuple[str, str]],
-    root_flows: list[tuple[str, set[str]]],
+    components: list[set[str]],
     out_path: Path,
-    max_nodes_per_flow: int,
+    max_nodes_per_component: int,
 ) -> None:
-    if not root_flows:
+    if not components:
         return
 
-    panel_count = len(root_flows)
+    panel_count = len(components)
     cols = max(1, int(math.ceil(math.sqrt(panel_count))))
     rows = int(math.ceil(panel_count / cols))
     fig, axes = plt.subplots(rows, cols, figsize=(4.2 * cols, 3.9 * rows))
     axes_flat = list(axes.flat) if hasattr(axes, "flat") else [axes]
 
-    for i, (root, node_set) in enumerate(root_flows):
+    for i, node_set in enumerate(components):
         ax = axes_flat[i]
         ax.set_xticks([])
         ax.set_yticks([])
@@ -116,9 +120,10 @@ def draw_pr_flows(
         ax.set_ylim(-1.1, 1.1)
         ax.set_aspect("equal", adjustable="box")
 
-        nodes = sorted(node_set)[:max_nodes_per_flow]
+        nodes = sorted(node_set)[:max_nodes_per_component]
         pos = circular_layout(nodes)
         local = set(nodes)
+        anchor = min(node_set)
 
         for a, b in directed_edges:
             if a in local and b in local:
@@ -135,7 +140,7 @@ def draw_pr_flows(
 
         xs = [pos[n][0] for n in nodes]
         ys = [pos[n][1] for n in nodes]
-        colors = ["#d62728" if n == root else "#1f77b4" for n in nodes]
+        colors = ["#d62728" if n == anchor else "#1f77b4" for n in nodes]
         ax.scatter(
             xs,
             ys,
@@ -166,8 +171,7 @@ def draw_pr_flows(
                 zorder=PR_GRAPH_Z_LABEL,
             )
 
-        root_label = root.split("::", 1)[-1]
-        title = f"Flow {i+1}: {len(node_set)} nodes\nroot={root_label}"
+        title = f"Component {i + 1}: {len(node_set)} nodes"
         if len(node_set) > len(nodes):
             title += f" (show {len(nodes)})"
         ax.set_title(title, fontsize=9)
@@ -176,7 +180,8 @@ def draw_pr_flows(
         axes_flat[j].axis("off")
 
     fig.suptitle(
-        f"{repo} PR #{pr_number} — root flows\nflows={len(root_flows)}, edges={len(directed_edges)}",
+        f"{repo} PR #{pr_number} — connected components\n"
+        f"components={len(components)}, directed edges={len(directed_edges)}",
         fontsize=11,
     )
     fig.tight_layout(rect=[0, 0, 1, 0.93])
@@ -203,7 +208,7 @@ def main() -> None:
 
         for sp in snaps:
             if args.limit_prs is not None and done >= args.limit_prs:
-                print(f"Wrote {done} PR flow plots under {out_root}")
+                print(f"Wrote {done} PR connected-component plots under {out_root}")
                 return
             snap = safe_load_json(sp)
             if snap is None:
@@ -217,33 +222,32 @@ def main() -> None:
             if not directed:
                 continue
 
-            roots, out_adj = roots_and_adjacency(node_keys, directed)
-            flows: list[tuple[str, set[str]]] = []
-            for r in roots:
-                rs = reachable(r, out_adj)
-                if len(rs) >= 2 or args.include_singleton_roots:
-                    flows.append((r, rs))
-            flows.sort(key=lambda x: len(x[1]), reverse=True)
-            flows = flows[: args.max_flows]
-            if not flows:
+            all_comps = undirected_components(node_keys, directed)
+            comps: list[set[str]] = []
+            for c in all_comps:
+                if len(c) >= 2 or args.include_singletons:
+                    comps.append(c)
+            comps.sort(key=lambda x: len(x), reverse=True)
+            comps = comps[: args.max_components]
+            if not comps:
                 continue
 
             part = sp.parent.name
             pr_num = int(part[3:]) if part.startswith("pr_") and part[3:].isdigit() else -1
-            out_path = out_root / repo_slug / f"pr_{pr_num}__flows.png"
-            draw_pr_flows(
+            out_path = out_root / repo_slug / f"pr_{pr_num}__connected_components.png"
+            draw_pr_components(
                 repo,
                 pr_num,
                 directed,
-                flows,
+                comps,
                 out_path,
-                args.max_nodes_per_flow,
+                args.max_nodes_per_component,
             )
             done += 1
 
         print(f"[{bi}/{len(bundles)}] {repo} done", flush=True)
 
-    print(f"Wrote {done} PR flow plots under {out_root}")
+    print(f"Wrote {done} PR connected-component plots under {out_root}")
 
 
 if __name__ == "__main__":
