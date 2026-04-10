@@ -41,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--out-dir",
         type=Path,
-        default=_ROOT / "viz_output_all_repos" / "flows" / "pr_flow_graphs",
+        default=_ROOT / "viz_output_all_repos" / "graphs" / "flows",
     )
     p.add_argument("--limit-repos", type=int, default=None)
     p.add_argument("--limit-prs", type=int, default=None)

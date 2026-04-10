@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--out-dir",
         type=Path,
-        default=_ROOT / "viz_output_all_repos" / "connected_components" / "pr_connected_component_graphs",
+        default=_ROOT / "viz_output_all_repos" / "graphs" / "cc",
     )
     p.add_argument("--limit-repos", type=int, default=None)
     p.add_argument("--limit-prs", type=int, default=None)
