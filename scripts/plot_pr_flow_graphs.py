@@ -10,21 +10,9 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-
-_ROOT = Path(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-
-from gh_pr_analysis.plots.pr_graph_viz import (
-    PR_GRAPH_ARROW_PROPS,
-    PR_GRAPH_Z_EDGE,
-    PR_GRAPH_Z_LABEL,
-    PR_GRAPH_Z_SCATTER,
-)
 
 from analyze_all_repos_connectivity import (
     build_changed_edges,
@@ -34,6 +22,9 @@ from analyze_all_repos_connectivity import (
     pr_snapshots_dir_for_reading,
     safe_load_json,
 )
+
+_ROOT = Path(__file__).resolve().parent.parent
+
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Plot per-PR root flow graphs.")
@@ -128,23 +119,22 @@ def draw_pr_flows(
                     "",
                     xy=(xb, yb),
                     xytext=(xa, ya),
-                    arrowprops=dict(PR_GRAPH_ARROW_PROPS),
-                    zorder=PR_GRAPH_Z_EDGE,
-                    clip_on=False,
+                    arrowprops={
+                        "arrowstyle": "-|>",
+                        "lw": 0.7,
+                        "color": "#9e9e9e",
+                        "alpha": 0.75,
+                        "shrinkA": 8,
+                        "shrinkB": 8,
+                        "mutation_scale": 8,
+                    },
+                    zorder=1,
                 )
 
         xs = [pos[n][0] for n in nodes]
         ys = [pos[n][1] for n in nodes]
         colors = ["#d62728" if n == root else "#1f77b4" for n in nodes]
-        ax.scatter(
-            xs,
-            ys,
-            s=28,
-            c=colors,
-            edgecolors="white",
-            linewidths=0.4,
-            zorder=PR_GRAPH_Z_SCATTER,
-        )
+        ax.scatter(xs, ys, s=28, c=colors, edgecolors="white", linewidths=0.4, zorder=2)
 
         for n in nodes:
             x, y = pos[n]
@@ -163,7 +153,7 @@ def draw_pr_flows(
                     "edgecolor": "#dddddd",
                     "alpha": 0.8,
                 },
-                zorder=PR_GRAPH_Z_LABEL,
+                zorder=3,
             )
 
         root_label = root.split("::", 1)[-1]
