@@ -42,7 +42,7 @@
 ### Flows
 
 6) PR vs. FPR  
-(share of changed nodes covered by flows of size ≥ 2)
+(FPR = nodes in flows of size ≥2 / changed nodes)
 
 ![PR vs. FPR](./viz_output_all_repos/flows/all_repos_pr_fpr_histogram_merged.png)
 
