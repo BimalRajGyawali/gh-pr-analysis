@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Merge median-component size plots (include n_nodes==0 vs defined-only).
+"""
+Merge connected-component count histograms (all PRs vs n_nodes>0 only) stacked vertically.
 
-Stacks vertically:
-  viz_output_all_repos/all_repos_pr_median_component_histogram.png
-  viz_output_all_repos/all_repos_pr_median_component_histogram_defined_only.png
+Run after `scripts/plot_all_repos_connected_component_count.py` has written:
+  viz_output_all_repos/connected_components/all_repos_pr_connected_component_count_histogram.png
+  viz_output_all_repos/connected_components/all_repos_pr_connected_component_count_histogram_defined_only.png
 
 Output:
-  viz_output_all_repos/all_repos_pr_median_component_histogram_merged.png
+  viz_output_all_repos/connected_components/all_repos_pr_connected_component_count_histogram_merged.png
 """
 
 from __future__ import annotations
@@ -18,11 +19,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 _ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = _ROOT / "viz_output_all_repos"
+OUT_DIR = _ROOT / "viz_output_all_repos" / "connected_components"
 
-TOP_NAME = "all_repos_pr_median_component_histogram.png"
-BOTTOM_NAME = "all_repos_pr_median_component_histogram_defined_only.png"
-MERGED_NAME = "all_repos_pr_median_component_histogram_merged.png"
+ALL_NAME = "all_repos_pr_connected_component_count_histogram.png"
+DEFINED_NAME = "all_repos_pr_connected_component_count_histogram_defined_only.png"
+MERGED_NAME = "all_repos_pr_connected_component_count_histogram_merged.png"
 
 
 def load_png(path: Path) -> np.ndarray:
@@ -38,10 +39,7 @@ def pad_to_same_width(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndar
         if img.shape[1] == w:
             return img
         h, w_old, channels = img.shape
-        if channels == 4:
-            bg_val = [1.0, 1.0, 1.0, 1.0]
-        else:
-            bg_val = [1.0, 1.0, 1.0]
+        bg_val = [1.0, 1.0, 1.0, 1.0] if channels == 4 else [1.0, 1.0, 1.0]
         canvas = np.ones((h, w, channels), dtype=img.dtype)
         for c, v in enumerate(bg_val):
             canvas[:, :, c] *= v
@@ -53,8 +51,12 @@ def pad_to_same_width(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndar
 
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    top = load_png(OUT_DIR / TOP_NAME)
-    bottom = load_png(OUT_DIR / BOTTOM_NAME)
+    all_path = OUT_DIR / ALL_NAME
+    def_path = OUT_DIR / DEFINED_NAME
+    out_path = OUT_DIR / MERGED_NAME
+
+    top = load_png(all_path)
+    bottom = load_png(def_path)
     top, bottom = pad_to_same_width(top, bottom)
 
     merged = np.concatenate([top, bottom], axis=0)
@@ -69,8 +71,9 @@ def main() -> None:
 
     merged = np.concatenate([top, sep, bottom], axis=0)
 
-    out_path = OUT_DIR / MERGED_NAME
     plt.imsave(out_path, merged)
+    all_path.unlink(missing_ok=True)
+    def_path.unlink(missing_ok=True)
     print(f"Wrote {out_path}")
 
 
